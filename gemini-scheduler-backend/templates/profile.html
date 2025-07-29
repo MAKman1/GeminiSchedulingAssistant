@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile{% endblock %}
+
+{% block content %}
+    <h1>User Profile</h1>
+    <h2 id="user-email"></h2>
+    <form id="profile-form">
+        <label for="preference_text">Custom Instructions:</label>
+        <textarea id="preference_text" name="preference_text" rows="4"></textarea>
+
+        <label for="min_meeting_time">Minimum Meeting Time:</label>
+        <input type="time" id="min_meeting_time" name="min_meeting_time">
+
+        <label for="max_meeting_time">Maximum Meeting Time:</label>
+        <input type="time" id="max_meeting_time" name="max_meeting_time">
+
+        <button type="submit">Save Preferences</button>
+    </form>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/firebase-auth.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/profile.js') }}"></script>
+{% endblock %}

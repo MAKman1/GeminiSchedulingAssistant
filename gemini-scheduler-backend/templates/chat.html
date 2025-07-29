@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Chat{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    <div class="session-list">
+        <h2>Sessions</h2>
+        <button id="new-chat-button">New Chat</button>
+        <ul id="sessions">
+            <!-- Session items will be populated by JS -->
+        </ul>
+    </div>
+    <div class="chat-window">
+        <div id="chat-history">
+            <!-- Chat messages will appear here -->
+        </div>
+        <div id="new-chat-form" style="display: none;">
+            <h3>Start a New Chat</h3>
+            <input type="text" id="meeting-title" placeholder="Meeting Title">
+            <input type="number" id="duration-minutes" placeholder="Duration (minutes)">
+            <textarea id="attendee-emails" placeholder="Enter comma-separated emails..."></textarea>
+            <textarea id="user-message-new" placeholder="Your message..."></textarea>
+            <button id="send-new-chat">Start Chat</button>
+        </div>
+        <div id="chat-input" style="display: none;">
+            <textarea id="user-message-existing" placeholder="Type your message..."></textarea>
+            <button id="send-message-button">Send</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/firebase-auth.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}

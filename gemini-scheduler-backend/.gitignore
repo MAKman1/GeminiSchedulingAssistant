@@ -1,0 +1,11 @@
+# Virtual Environment
+venv/
+*.pyc
+
+# Sensitive Files
+.env
+service-account.json
+
+# IDE folders
+.idea/
+.vscode/
