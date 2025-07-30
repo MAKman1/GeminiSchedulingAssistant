@@ -8,8 +8,10 @@
 </head>
 <body>
     <nav>
-        <a href="{{ url_for('profile_route') }}">Profile</a>
-        <a href="{{ url_for('chat_route') }}">Chat</a>
+        <div class="nav-links">
+            <a href="{{ url_for('profile_route') }}">Profile</a>
+            <a href="{{ url_for('chat_route') }}">Chat</a>
+        </div>
         <button id="sign-out-button" style="display: none;">Sign Out</button>
     </nav>
     <div class="container">

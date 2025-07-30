@@ -3,12 +3,13 @@
 
 // Note: Firebase config will need to be added here from the user's Firebase project.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyAtxj7K-CUENszEMFyLivMs0hbr6O_vhAw",
+  authDomain: "geminischedulingassistant.firebaseapp.com",
+  projectId: "geminischedulingassistant",
+  storageBucket: "geminischedulingassistant.firebasestorage.app",
+  messagingSenderId: "585842718751",
+  appId: "1:585842718751:web:46e0293c08c0d6ea363d2a",
+  measurementId: "G-FFBVDVJPN6"
 };
 
 // Initialize Firebase

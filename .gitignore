@@ -9,3 +9,4 @@ service-account.json
 # IDE folders
 .idea/
 .vscode/
+service-account-key.json

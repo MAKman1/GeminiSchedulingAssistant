@@ -108,8 +108,9 @@ def chat():
     if not data:
         return jsonify({"error": "Invalid JSON"}), 400
 
-    session_id = data.get('sessionId')
+    session_id = data.get('thread_id')
     user_message = data.get('message')
+    recipients = data.get('recipients')
 
     if not user_message:
         return jsonify({"error": "The 'message' field is required."}), 400
@@ -118,22 +119,23 @@ def chat():
     session = get_or_create_session(session_id=session_id, user_email=g.current_user['email'])
 
     # 3. If this is the first message of a new session, store original request details
-    is_new_conversation = not session_id or not session.get('conversation_history')
+    is_new_conversation = not session.get('conversation_history')
     if is_new_conversation:
-        attendees_csv = data.get('attendees_csv')
-        if not attendees_csv:
-            return jsonify({"error": "The 'attendees_csv' field is required for a new chat."}), 400
-
-        # Parse the CSV string and add the current user's email
-        attendees = [email.strip() for email in attendees_csv.split(',') if email.strip()]
+        # Parse the CSV string, filter by domain, and remove the current user
+        allowed_domain = os.getenv("ALLOWED_DOMAIN")
+        attendees = [
+            email.strip()
+            for email in recipients.split(',')
+            if email.strip().endswith(f"@{allowed_domain}")
+        ]
         user_email = g.current_user['email']
-        if user_email not in attendees:
-            attendees.insert(0, user_email)
+        if user_email in attendees:
+            attendees.remove(user_email)
 
         initial_details = {
             "attendees": attendees,
-            "duration_minutes": data.get("duration_minutes"),
-            "meeting_title": data.get("meeting_title")
+            "duration_minutes": None, # Not provided in the new format
+            "meeting_title": None # Not provided in the new format
         }
 
         session['original_request_details'] = initial_details
@@ -146,15 +148,18 @@ def chat():
 
     # 5. Call the orchestrator agent to get the AI's response
     try:
-        assistant_response_text = run_orchestrator_agent(session)
+        agent_response = run_orchestrator_agent(session)
+        assistant_response_text = agent_response["text"]
+        debug_info = agent_response["debug_info"]
         session['status'] = 'AWAITING_CONFIRMATION' # Assume agent is proposing slots
     except Exception as e:
         print(f"ERROR: An exception occurred in the agent: {e}")
         assistant_response_text = "I'm sorry, I encountered an internal error and couldn't process your request. Please try again later."
+        debug_info = {"error": str(e)}
         session['status'] = 'FAILED'
 
     # 6. Append the assistant's response to the history
-    assistant_message_entry = {"role": "model", "content": assistant_response_text}
+    assistant_message_entry = {"role": "model", "content": assistant_response_text, "debug_info": debug_info}
     session['conversation_history'].append(assistant_message_entry)
 
     # 7. Update the entire session state in Firestore
@@ -168,7 +173,8 @@ def chat():
     # 8. Return the agent's response and session ID to the client
     return jsonify({
         "sessionId": session['sessionId'],
-        "response": assistant_response_text
+        "response": assistant_response_text,
+        "debug_info": debug_info
     })
 
 # ++++++++++ Frontend Routes ++++++++++

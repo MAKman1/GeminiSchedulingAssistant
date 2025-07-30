@@ -28,9 +28,8 @@ def get_or_create_session(session_id: str = None, user_email: str = None) -> dic
     if not user_email:
         raise ValueError("user_email is required to create a new session.")
 
-    new_session_id = str(uuid.uuid4())
     session_data = {
-        "sessionId": new_session_id,
+        "sessionId": session_id,
         "user_email": user_email, # Associate session with the user
         "status": "AWAITING_INPUT",
         "last_updated": firestore.SERVER_TIMESTAMP,
@@ -38,7 +37,7 @@ def get_or_create_session(session_id: str = None, user_email: str = None) -> dic
         "conversation_history": [],
         "suggested_slots": []
     }
-    db.collection(SESSIONS_COLLECTION).document(new_session_id).set(session_data)
+    db.collection(SESSIONS_COLLECTION).document(session_id).set(session_data)
     return session_data
 
 def get_sessions_for_user(user_email: str) -> list[dict]:

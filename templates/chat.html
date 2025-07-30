@@ -7,7 +7,7 @@
     <div class="session-list">
         <h2>Sessions</h2>
         <button id="new-chat-button">New Chat</button>
-        <ul id="sessions">
+        <ul id="sessions" style="list-style-type: none; padding: 0;">
             <!-- Session items will be populated by JS -->
         </ul>
     </div>
@@ -17,10 +17,7 @@
         </div>
         <div id="new-chat-form" style="display: none;">
             <h3>Start a New Chat</h3>
-            <input type="text" id="meeting-title" placeholder="Meeting Title">
-            <input type="number" id="duration-minutes" placeholder="Duration (minutes)">
-            <textarea id="attendee-emails" placeholder="Enter comma-separated emails..."></textarea>
-            <textarea id="user-message-new" placeholder="Your message..."></textarea>
+            <textarea id="json-input" placeholder="Enter JSON input..."></textarea>
             <button id="send-new-chat">Start Chat</button>
         </div>
         <div id="chat-input" style="display: none;">
@@ -28,6 +25,15 @@
             <button id="send-message-button">Send</button>
         </div>
     </div>
+</div>
+
+<!-- The Modal -->
+<div id="debug-modal" class="modal">
+  <!-- Modal content -->
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <pre id="debug-content"></pre>
+  </div>
 </div>
 {% endblock %}
 

@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timedelta
+import google.auth
 import google.oauth2.service_account
 import googleapiclient.discovery
 
@@ -10,16 +11,15 @@ def _get_calendar_service(user_to_impersonate: str):
     """Creates and returns a Google Calendar service object impersonating a user."""
 
     creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if not creds_path:
-        raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable not set.")
-
-    if not os.path.exists(creds_path):
-        raise FileNotFoundError(f"Service account file not found at {creds_path}")
-
-    # Create credentials with specified scopes and the user to impersonate
-    creds = google.oauth2.service_account.Credentials.from_service_account_file(
-        creds_path, scopes=CALENDAR_SCOPES, subject=user_to_impersonate
-    )
+    if creds_path and os.path.exists(creds_path):
+        # Use service account key file if it exists
+        creds = google.oauth2.service_account.Credentials.from_service_account_file(
+            creds_path, scopes=CALENDAR_SCOPES, subject=user_to_impersonate
+        )
+    else:
+        # Fallback to Application Default Credentials
+        creds, _ = google.auth.default(scopes=CALENDAR_SCOPES)
+        creds = creds.with_subject(user_to_impersonate)
 
     service = googleapiclient.discovery.build('calendar', 'v3', credentials=creds)
     return service
@@ -46,7 +46,22 @@ def get_free_busy_info(attendee_emails: list, start_time_str: str, end_time_str:
     }
 
     free_busy_response = service.freebusy().query(body=body).execute()
-    return free_busy_response.get('calendars', {})
+    calendars = free_busy_response.get('calendars', {})
+
+    attendee_data = []
+    for email in attendee_emails:
+        calendar_info = calendars.get(email, {})
+        busy_slots = calendar_info.get('busy', [])
+        attendee_data.append({
+            "email": email,
+            "busy_slots": busy_slots,
+            "soft_blocks": [] # Placeholder for now
+        })
+
+    return {
+        "internal_attendees": attendee_data,
+        "external_attendees": [] # Placeholder for now
+    }
 
 def create_calendar_event(summary: str, start_time_str: str, end_time_str: str, attendees: list, user_to_impersonate: str) -> dict:
     """
@@ -68,11 +83,11 @@ def create_calendar_event(summary: str, start_time_str: str, end_time_str: str, 
         'summary': summary,
         'start': {
             'dateTime': start_time_str,
-            'timeZone': 'UTC', # Use UTC for consistency
+            'timeZone': 'Europe/London',
         },
         'end': {
             'dateTime': end_time_str,
-            'timeZone': 'UTC',
+            'timeZone': 'Europe/London',
         },
         'attendees': [{'email': email} for email in attendees],
         'reminders': {

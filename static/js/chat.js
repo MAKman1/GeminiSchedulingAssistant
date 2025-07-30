@@ -46,7 +46,11 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(res => res.json())
             .then(sessions => {
-                renderSessionList(sessions);
+                if (Array.isArray(sessions)) {
+                    renderSessionList(sessions);
+                } else {
+                    console.error('Error fetching sessions:', sessions.error || 'Unknown error');
+                }
             })
             .catch(error => console.error('Error fetching sessions:', error));
         });
@@ -82,10 +86,7 @@ document.addEventListener('DOMContentLoaded', function() {
         chatHistory.innerHTML = '';
         if (history && history.length > 0) {
             history.forEach(message => {
-                const messageDiv = document.createElement('div');
-                messageDiv.classList.add('message', message.role); // 'user' or 'model'
-                messageDiv.textContent = message.content;
-                chatHistory.appendChild(messageDiv);
+                appendMessageToHistory(message);
             });
         } else {
             chatHistory.innerHTML = '<p>No messages in this chat yet.</p>';
@@ -97,6 +98,44 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', message.role);
         messageDiv.textContent = message.content;
+
+        if (message.role === 'model') {
+            const debugButton = document.createElement('button');
+            debugButton.textContent = 'Debug';
+            debugButton.classList.add('debug-button');
+            debugButton.addEventListener('click', () => {
+                const modal = document.getElementById('debug-modal');
+                const debugContent = document.getElementById('debug-content');
+                const debugInfo = message.debug_info;
+                
+                debugContent.innerHTML = `
+                    <div class="debug-card">
+                        <h3>System Prompt</h3>
+                        <pre>${debugInfo.system_prompt}</pre>
+                    </div>
+                    <div class="debug-card">
+                        <h3>Conversation History</h3>
+                        <pre>${JSON.stringify(debugInfo.conversation_history, null, 2)}</pre>
+                    </div>
+                    <div class="debug-card">
+                        <h3>Tool Calls</h3>
+                        <pre>${JSON.stringify(debugInfo.tool_calls, null, 2)}</pre>
+                    </div>
+                    <div class="debug-card">
+                        <h3>Tool Responses</h3>
+                        <pre>${JSON.stringify(debugInfo.tool_responses, null, 2)}</pre>
+                    </div>
+                    <div class="debug-card">
+                        <h3>Full Response</h3>
+                        <pre>${debugInfo.full_response}</pre>
+                    </div>
+                `;
+
+                modal.style.display = 'block';
+            });
+            messageDiv.appendChild(debugButton);
+        }
+
         chatHistory.appendChild(messageDiv);
         chatHistory.scrollTop = chatHistory.scrollHeight;
     };
@@ -114,6 +153,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
         sendNewChatButton.addEventListener('click', handleSendMessage);
         sendMessageButton.addEventListener('click', handleSendMessage);
+
+        // Modal close button
+        const modal = document.getElementById('debug-modal');
+        const closeButton = document.getElementsByClassName('close')[0];
+        closeButton.onclick = function() {
+            modal.style.display = 'none';
+        }
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
     };
 
     // --- Message Sending ---
@@ -135,25 +186,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
         } else {
             // Starting a new chat
-            const title = document.getElementById('meeting-title').value;
-            const duration = document.getElementById('duration-minutes').value;
-            const attendees = document.getElementById('attendee-emails').value;
-            const messageInput = document.getElementById('user-message-new');
-            userMessageContent = messageInput.value.trim();
-
-            if (!attendees || !userMessageContent) {
-                alert('Attendee emails and a message are required to start a new chat.');
+            const jsonInput = document.getElementById('json-input').value;
+            if (!jsonInput) {
+                alert('JSON input is required to start a new chat.');
                 return;
             }
 
-            messagePayload = {
-                message: userMessageContent,
-                attendees_csv: attendees,
-                meeting_title: title,
-                duration_minutes: duration
-            };
+            try {
+                const parsedJson = JSON.parse(jsonInput);
+                userMessageContent = parsedJson.thread_contents;
+                messagePayload = {
+                    thread_id: parsedJson.thread_id,
+                    recipients: parsedJson.recipients,
+                    message: userMessageContent
+                };
+            } catch (error) {
+                alert('Invalid JSON format.');
+                return;
+            }
+            
             // Clear new chat form
-            messageInput.value = '';
+            document.getElementById('json-input').value = '';
         }
 
         // Append user message to UI immediately
@@ -175,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error(data.error);
                 }
                 // Append assistant response to UI
-                appendMessageToHistory({ role: 'model', content: data.response });
+                appendMessageToHistory({ role: 'model', content: data.response, debug_info: data.debug_info });
 
                 // If it was a new chat, we now have a session ID
                 if (!activeSessionId) {
