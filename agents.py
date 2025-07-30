@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from google import genai
 from datetime import datetime
 from google.genai import types
@@ -18,19 +19,19 @@ try:
         project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
         location = os.getenv('GOOGLE_CLOUD_LOCATION')
         client = genai.Client(vertexai=True, project=project_id, location=location)
-        print("GenAI client configured for Vertex AI.")
+        logging.info("GenAI client configured for Vertex AI.")
     else:
         # Fallback or default configuration if not using Vertex AI
         # For example, using Google AI Studio API key
         api_key = os.getenv("GOOGLE_API_KEY")
         if api_key:
             client = genai.Client(api_key=api_key)
-            print("GenAI client configured for Google AI Studio.")
+            logging.info("GenAI client configured for Google AI Studio.")
         else:
-            print("GenAI client not configured. Set GOOGLE_GENAI_USE_VERTEXAI or GOOGLE_API_KEY.")
+            logging.warning("GenAI client not configured. Set GOOGLE_GENAI_USE_VERTEXAI or GOOGLE_API_KEY.")
 
 except Exception as e:
-    print(f"CRITICAL: GenAI client failed to initialize. Environment variables may be missing: {e}")
+    logging.critical(f"GenAI client failed to initialize. Environment variables may be missing: {e}")
 
 
 # --- Define the Python function that will be used as a tool ---
@@ -45,7 +46,7 @@ def get_comprehensive_attendee_data(attendees: list[str], start_date: str, end_d
         end_date: The end date for the search window in YYYY-MM-DD format.
         user_to_impersonate: The email address of the user making the request, used for calendar authentication.
     """
-    print(f"--- Tool Called: get_comprehensive_attendee_data with args: {locals()} ---")
+    logging.info(f"--- Tool Called: get_comprehensive_attendee_data with args: {locals()} ---")
 
     # 1. Get user preferences from Firestore
     preferences = get_user_preferences(attendees)
@@ -66,7 +67,7 @@ def get_comprehensive_attendee_data(attendees: list[str], start_date: str, end_d
     for attendee in free_busy_data["internal_attendees"]:
         attendee["preference_rule"] = preferences.get(attendee["email"], {}).get("preference_text", "")
 
-    print(f"--- Tool Data Consolidated ---")
+    logging.info(f"--- Tool Data Consolidated ---")
     return free_busy_data
 
 
@@ -106,9 +107,9 @@ Your workflow should be as follows:
         for msg in conversation_history
     ]
 
-    print("--- Sending request to GenAI ---")
-    print(f"System prompt: {system_prompt}")
-    print(f"Conversation history: {formatted_history}")
+    logging.info("--- Sending request to GenAI ---")
+    logging.info(f"System prompt: {system_prompt}")
+    logging.info(f"Conversation history: {formatted_history}")
 
     response = client.models.generate_content(
         model='gemini-2.5-flash',
@@ -119,7 +120,7 @@ Your workflow should be as follows:
         )
     )
 
-    print(f"--- Received response from GenAI: {response} ---")
+    logging.info(f"--- Received response from GenAI: {response} ---")
 
     tool_calls = []
     tool_responses = []

@@ -1,9 +1,13 @@
 import os
 import datetime
+import logging
 from flask import Flask, request, jsonify, render_template, g
 from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Load environment variables from .env file at the very start
 load_dotenv()
