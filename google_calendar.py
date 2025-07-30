@@ -12,6 +12,7 @@ def _get_calendar_service(user_to_impersonate: str):
     """Creates and returns a Google Calendar service object impersonating a user."""
 
     try:
+        creds = None
         creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         if creds_path and os.path.exists(creds_path):
             # Use service account key file if it exists
