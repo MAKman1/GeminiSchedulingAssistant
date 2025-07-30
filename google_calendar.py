@@ -47,7 +47,7 @@ def _get_calendar_service(user_to_impersonate: str):
 
 def get_free_busy_info(attendee_emails: list, start_time_str: str, end_time_str: str, user_to_impersonate: str) -> dict:
     """
-    Fetches the free/busy information for a list of attendees.
+    Fetches detailed event information for a list of attendees to identify busy times and potential soft blocks.
 
     Args:
         attendee_emails: List of emails for the attendees.
@@ -56,35 +56,57 @@ def get_free_busy_info(attendee_emails: list, start_time_str: str, end_time_str:
         user_to_impersonate: The email of the user to act on behalf of.
 
     Returns:
-        A dictionary containing the busy time slots for each calendar.
+        A dictionary containing detailed busy slots for each calendar.
     """
-    logging.info("--- Getting free/busy info ---")
-    try:
-        service = _get_calendar_service(user_to_impersonate)
-
-        body = {
-            "timeMin": start_time_str,
-            "timeMax": end_time_str,
-            "items": [{"id": email} for email in attendee_emails]
-        }
-
-        logging.info(f"Free/busy request body: {body}")
-        free_busy_response = service.freebusy().query(body=body).execute()
-        logging.info(f"Free/busy response: {free_busy_response}")
-        calendars = free_busy_response.get('calendars', {})
-    except Exception as e:
-        logging.error(f"Error getting free/busy info: {e}")
-        raise e
-
+    logging.info("--- Getting detailed free/busy info ---")
+    service = _get_calendar_service(user_to_impersonate)
     attendee_data = []
+    soft_block_keywords = ["focus time", "study time", "no meetings", "deep work"]
+
     for email in attendee_emails:
-        calendar_info = calendars.get(email, {})
-        busy_slots = calendar_info.get('busy', [])
-        attendee_data.append({
-            "email": email,
-            "busy_slots": busy_slots,
-            "soft_blocks": [] # Placeholder for now
-        })
+        try:
+            events_result = service.events().list(
+                calendarId=email,
+                timeMin=start_time_str,
+                timeMax=end_time_str,
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            events = events_result.get('items', [])
+
+            busy_slots = []
+            soft_blocks = []
+            for event in events:
+                summary = event.get('summary', '').lower()
+                attendees_count = len(event.get('attendees', []))
+                event_details = {
+                    'start': event['start'].get('dateTime', event['start'].get('date')),
+                    'end': event['end'].get('dateTime', event['end'].get('date')),
+                    'summary': summary,
+                    'attendees_count': attendees_count
+                }
+
+                # Check if it's a soft block
+                is_soft_block = any(keyword in summary for keyword in soft_block_keywords) or attendees_count <= 1
+                
+                if is_soft_block:
+                    soft_blocks.append(event_details)
+                else:
+                    busy_slots.append(event_details)
+
+            attendee_data.append({
+                "email": email,
+                "busy_slots": busy_slots,
+                "soft_blocks": soft_blocks
+            })
+        except Exception as e:
+            logging.error(f"Could not fetch calendar for {email}. It might be a permissions issue or the calendar doesn't exist. Error: {e}")
+            # Add the attendee with empty lists if their calendar is inaccessible
+            attendee_data.append({
+                "email": email,
+                "busy_slots": [],
+                "soft_blocks": []
+            })
 
     return {
         "internal_attendees": attendee_data,

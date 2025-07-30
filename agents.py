@@ -113,6 +113,9 @@ Your workflow should be as follows:
 - You have been provided with a list of attendees: {json.dumps(session['original_request_details']['attendees'])}. Use this list to check for availability.
 - Here is a list of previously scheduled events in this session that can be rescheduled: {json.dumps(events_for_prompt)}
 - After successfully creating an event using the `create_calendar_event` tool, your confirmation message to the user **must** include the `htmlLink` from the tool's output.
+- When proposing a time, first look for slots where all attendees are free.
+- If no completely free slots are available, you may propose a time that overlaps with a "soft block" (e.g., "focus time", "deep work", or a meeting with only 1 attendee).
+- If you propose a time that overlaps with a soft block, you **must** mention it in your response and ask if it's okay to book over it (e.g., "I found a slot at 2pm, but I see you have 'focus time' scheduled. Would it be okay to book over that?").
 - Do not ask for the attendees' email addresses as they have already been provided.
 - Do not engage in conversational chit-chat. Be direct and helpful.
 """
