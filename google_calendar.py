@@ -10,19 +10,23 @@ CALENDAR_SCOPES = ['https://www.googleapis.com/auth/calendar']
 def _get_calendar_service(user_to_impersonate: str):
     """Creates and returns a Google Calendar service object impersonating a user."""
 
-    creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if creds_path and os.path.exists(creds_path):
-        # Use service account key file if it exists
-        creds = google.oauth2.service_account.Credentials.from_service_account_file(
-            creds_path, scopes=CALENDAR_SCOPES, subject=user_to_impersonate
-        )
-    else:
-        # Fallback to Application Default Credentials
-        creds, _ = google.auth.default(scopes=CALENDAR_SCOPES)
-        creds = creds.with_subject(user_to_impersonate)
+    try:
+        creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if creds_path and os.path.exists(creds_path):
+            # Use service account key file if it exists
+            creds = google.oauth2.service_account.Credentials.from_service_account_file(
+                creds_path, scopes=CALENDAR_SCOPES, subject=user_to_impersonate
+            )
+        else:
+            # Fallback to Application Default Credentials
+            creds, _ = google.auth.default(scopes=CALENDAR_SCOPES)
+            creds = creds.with_subject(user_to_impersonate)
 
-    service = googleapiclient.discovery.build('calendar', 'v3', credentials=creds)
-    return service
+        service = googleapiclient.discovery.build('calendar', 'v3', credentials=creds)
+        return service
+    except Exception as e:
+        print(f"Error creating calendar service: {e}")
+        raise e
 
 def get_free_busy_info(attendee_emails: list, start_time_str: str, end_time_str: str, user_to_impersonate: str) -> dict:
     """
