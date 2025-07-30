@@ -35,7 +35,8 @@ def get_or_create_session(session_id: str = None, user_email: str = None) -> dic
         "last_updated": firestore.SERVER_TIMESTAMP,
         "original_request_details": {},
         "conversation_history": [],
-        "suggested_slots": []
+        "suggested_slots": [],
+        "events": [] # New field to store scheduled events
     }
     db.collection(SESSIONS_COLLECTION).document(session_id).set(session_data)
     return session_data
@@ -66,6 +67,22 @@ def update_session(session_id: str, data_to_update: dict):
     data_to_update['last_updated'] = firestore.SERVER_TIMESTAMP
     session_ref.update(data_to_update)
     print(f"Session {session_id} updated.")
+
+def add_event_to_session(session_id: str, event_data: dict):
+    """
+    Adds a created event to the session's event list.
+
+    Args:
+        session_id: The ID of the session to update.
+        event_data: A dictionary containing the event details from the Calendar API.
+    """
+    session_ref = db.collection(SESSIONS_COLLECTION).document(session_id)
+    update_data = {
+        "events": firestore.ArrayUnion([event_data]),
+        "last_updated": firestore.SERVER_TIMESTAMP
+    }
+    session_ref.update(update_data)
+    print(f"Event added to session {session_id}.")
 
 def get_user_preferences(list_of_emails: list) -> dict:
     """

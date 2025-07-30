@@ -109,6 +109,11 @@ def create_calendar_event(summary: str, start_time_str: str, end_time_str: str, 
     try:
         service = _get_calendar_service(user_to_impersonate)
 
+        # Exclude the agent's email from the attendee list
+        agent_email = os.getenv("AGENT_EMAIL")
+        if agent_email:
+            attendees = [email for email in attendees if email.lower() != agent_email.lower()]
+
         event_body = {
             'summary': summary,
             'start': {
@@ -136,4 +141,41 @@ def create_calendar_event(summary: str, start_time_str: str, end_time_str: str, 
         return created_event
     except Exception as e:
         logging.error(f"Error creating calendar event: {e}")
+        raise e
+
+def reschedule_calendar_event(event_id: str, start_time_str: str, end_time_str: str, user_to_impersonate: str) -> dict:
+    """
+    Reschedules an existing calendar event.
+
+    Args:
+        event_id: The ID of the event to reschedule.
+        start_time_str: The new start time of the event (ISO 8601 format).
+        end_time_str: The new end time of the event (ISO 8601 format).
+        user_to_impersonate: The email of the user whose calendar hosts the event.
+
+    Returns:
+        A dictionary representing the updated event.
+    """
+    logging.info(f"--- Rescheduling calendar event {event_id} ---")
+    try:
+        service = _get_calendar_service(user_to_impersonate)
+
+        # First, get the existing event to preserve its other details
+        event = service.events().get(calendarId='primary', eventId=event_id).execute()
+
+        # Update the start and end times
+        event['start']['dateTime'] = start_time_str
+        event['end']['dateTime'] = end_time_str
+
+        updated_event = service.events().update(
+            calendarId='primary',
+            eventId=event_id,
+            body=event,
+            sendNotifications=True
+        ).execute()
+
+        logging.info(f"Event rescheduled: {updated_event.get('htmlLink')}")
+        return updated_event
+    except Exception as e:
+        logging.error(f"Error rescheduling event: {e}")
         raise e

@@ -6,8 +6,8 @@ from datetime import datetime
 from google.genai import types
 
 # Import our other modules
-from firestore_db import get_user_preferences
-from google_calendar import get_free_busy_info, create_calendar_event
+from firestore_db import get_user_preferences, add_event_to_session
+from google_calendar import get_free_busy_info, create_calendar_event, reschedule_calendar_event
 
 # --- Initialize the GenAI Client for Vertex AI ---
 # The client is configured using environment variables.
@@ -79,14 +79,31 @@ def run_orchestrator_agent(session: dict) -> dict:
     """
     conversation_history = session.get('conversation_history', [])
     user_to_impersonate = os.getenv("AGENT_EMAIL")
+    session_id = session.get("sessionId")
+
+    # Extract event info for the prompt, ensuring it's not in the past
+    events_for_prompt = []
+    for event in session.get("events", []):
+        try:
+            end_time = datetime.fromisoformat(event['end']['dateTime'].replace('Z', '+00:00'))
+            if end_time > datetime.now(end_time.tzinfo):
+                events_for_prompt.append({
+                    "id": event.get("id"),
+                    "summary": event.get("summary"),
+                    "start": event.get("start", {}).get("dateTime"),
+                    "end": event.get("end", {}).get("dateTime"),
+                })
+        except (KeyError, TypeError):
+            continue # Skip malformed events
 
     system_prompt = f"""
-You are a helpful scheduling assistant. Your goal is to find a suitable meeting time for a list of attendees.
+You are a helpful scheduling assistant. Your goal is to find a suitable meeting time for a list of attendees, or reschedule an existing meeting.
 Your workflow should be as follows:
 1.  When the user asks for availability, use the `get_comprehensive_attendee_data` tool to get the necessary information.
 2.  Analyze the data and propose 2-3 specific meeting slots to the user.
 3.  Wait for the user to confirm a time.
 4.  Once the user confirms a time, use the `create_calendar_event` tool to book the meeting.
+5.  If the user asks to reschedule an event, use the `reschedule_calendar_event` tool. You must have the `event_id` from the list of scheduled events below.
 
 - Today's date is {datetime.utcnow().strftime('%Y-%m-%d (%A)')}.
 - The current timezone is UK time.
@@ -94,6 +111,8 @@ Your workflow should be as follows:
 - The user you are acting on behalf of is {user_to_impersonate}. You MUST pass their email to the `user_to_impersonate` argument for any tool calls.
 - The user's message will be an excerpt from an email thread. Prioritize the last message in the thread, but use the previous messages for context.
 - You have been provided with a list of attendees: {json.dumps(session['original_request_details']['attendees'])}. Use this list to check for availability.
+- Here is a list of previously scheduled events in this session that can be rescheduled: {json.dumps(events_for_prompt)}
+- After successfully creating an event using the `create_calendar_event` tool, your confirmation message to the user **must** include the `htmlLink` from the tool's output.
 - Do not ask for the attendees' email addresses as they have already been provided.
 - Do not engage in conversational chit-chat. Be direct and helpful.
 """
@@ -115,7 +134,7 @@ Your workflow should be as follows:
         model='gemini-2.5-flash',
         contents=formatted_history,
         config=types.GenerateContentConfig(
-            tools=[get_comprehensive_attendee_data, create_calendar_event],
+            tools=[get_comprehensive_attendee_data, create_calendar_event, reschedule_calendar_event],
             system_instruction=system_prompt
         )
     )
@@ -136,6 +155,11 @@ Your workflow should be as follows:
             if content.role == 'user':
                 for part in content.parts:
                     if part.function_response:
+                        # If a meeting was created, add it to the session
+                        if part.function_response.name == "create_calendar_event":
+                            event_data = dict(part.function_response.response)
+                            if session_id and event_data:
+                                add_event_to_session(session_id, event_data)
                         tool_responses.append({
                             "function_name": part.function_response.name,
                             "response": dict(part.function_response.response),
