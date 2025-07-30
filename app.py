@@ -105,6 +105,7 @@ def chat():
     """
     # 1. Get data from the request body
     data = request.get_json()
+    print(f"--- Incoming request: {data} ---")
     if not data:
         return jsonify({"error": "Invalid JSON"}), 400
 
@@ -171,11 +172,13 @@ def chat():
     update_session(session['sessionId'], update_data)
 
     # 8. Return the agent's response and session ID to the client
-    return jsonify({
+    response_data = {
         "sessionId": session['sessionId'],
         "response": assistant_response_text,
         "debug_info": debug_info
-    })
+    }
+    print(f"--- Outgoing response: {response_data} ---")
+    return jsonify(response_data)
 
 @app.route('/api/v1/chat', methods=['POST'])
 @api_key_required

@@ -41,16 +41,23 @@ def get_free_busy_info(attendee_emails: list, start_time_str: str, end_time_str:
     Returns:
         A dictionary containing the busy time slots for each calendar.
     """
-    service = _get_calendar_service(user_to_impersonate)
+    print("--- Getting free/busy info ---")
+    try:
+        service = _get_calendar_service(user_to_impersonate)
 
-    body = {
-        "timeMin": start_time_str,
-        "timeMax": end_time_str,
-        "items": [{"id": email} for email in attendee_emails]
-    }
+        body = {
+            "timeMin": start_time_str,
+            "timeMax": end_time_str,
+            "items": [{"id": email} for email in attendee_emails]
+        }
 
-    free_busy_response = service.freebusy().query(body=body).execute()
-    calendars = free_busy_response.get('calendars', {})
+        print(f"Free/busy request body: {body}")
+        free_busy_response = service.freebusy().query(body=body).execute()
+        print(f"Free/busy response: {free_busy_response}")
+        calendars = free_busy_response.get('calendars', {})
+    except Exception as e:
+        print(f"Error getting free/busy info: {e}")
+        raise e
 
     attendee_data = []
     for email in attendee_emails:
@@ -81,29 +88,35 @@ def create_calendar_event(summary: str, start_time_str: str, end_time_str: str, 
     Returns:
         A dictionary representing the created event.
     """
-    service = _get_calendar_service(user_to_impersonate)
+    print("--- Creating calendar event ---")
+    try:
+        service = _get_calendar_service(user_to_impersonate)
 
-    event_body = {
-        'summary': summary,
-        'start': {
-            'dateTime': start_time_str,
-            'timeZone': 'Europe/London',
-        },
-        'end': {
-            'dateTime': end_time_str,
-            'timeZone': 'Europe/London',
-        },
-        'attendees': [{'email': email} for email in attendees],
-        'reminders': {
-            'useDefault': True,
-        },
-    }
+        event_body = {
+            'summary': summary,
+            'start': {
+                'dateTime': start_time_str,
+                'timeZone': 'Europe/London',
+            },
+            'end': {
+                'dateTime': end_time_str,
+                'timeZone': 'Europe/London',
+            },
+            'attendees': [{'email': email} for email in attendees],
+            'reminders': {
+                'useDefault': True,
+            },
+        }
 
-    created_event = service.events().insert(
-        calendarId='primary',
-        body=event_body,
-        sendNotifications=True # Send invitations to attendees
-    ).execute()
+        print(f"Event body: {event_body}")
+        created_event = service.events().insert(
+            calendarId='primary',
+            body=event_body,
+            sendNotifications=True # Send invitations to attendees
+        ).execute()
 
-    print(f"Event created: {created_event.get('htmlLink')}")
-    return created_event
+        print(f"Event created: {created_event.get('htmlLink')}")
+        return created_event
+    except Exception as e:
+        print(f"Error creating calendar event: {e}")
+        raise e

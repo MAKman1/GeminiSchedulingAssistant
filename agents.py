@@ -106,6 +106,10 @@ Your workflow should be as follows:
         for msg in conversation_history
     ]
 
+    print("--- Sending request to GenAI ---")
+    print(f"System prompt: {system_prompt}")
+    print(f"Conversation history: {formatted_history}")
+
     response = client.models.generate_content(
         model='gemini-2.5-flash',
         contents=formatted_history,
@@ -114,6 +118,8 @@ Your workflow should be as follows:
             system_instruction=system_prompt
         )
     )
+
+    print(f"--- Received response from GenAI: {response} ---")
 
     tool_calls = []
     tool_responses = []
