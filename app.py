@@ -16,7 +16,7 @@ firebase_admin.initialize_app(cred)
 # Now import custom modules that rely on the loaded environment variables
 from firestore_db import get_or_create_session, update_session, get_user_preferences, update_user_preferences, get_sessions_for_user
 from agents import run_orchestrator_agent
-from utils import token_required
+from utils import token_required, api_key_required
 
 app = Flask(__name__)
 
@@ -175,6 +175,78 @@ def chat():
         "sessionId": session['sessionId'],
         "response": assistant_response_text,
         "debug_info": debug_info
+    })
+
+@app.route('/api/v1/chat', methods=['POST'])
+@api_key_required
+def api_chat():
+    """
+    API endpoint to handle the conversation with the scheduling agent.
+    """
+    # 1. Get data from the request body
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    session_id = data.get('thread_id')
+    user_message = data.get('thread_contents')
+    recipients = data.get('recipients')
+
+    if not user_message:
+        return jsonify({"error": "The 'thread_contents' field is required."}), 400
+
+    # 2. Retrieve the session from Firestore or create a new one
+    # For the API, we'll use a dummy user email for now.
+    # In a real-world scenario, you might want to associate API keys with users.
+    session = get_or_create_session(session_id=session_id, user_email="api_user")
+
+    # 3. If this is the first message of a new session, store original request details
+    is_new_conversation = not session.get('conversation_history')
+    if is_new_conversation:
+        # Parse the CSV string, filter by domain, and remove the current user
+        allowed_domain = os.getenv("ALLOWED_DOMAIN")
+        attendees = [
+            email.strip()
+            for email in recipients.split(',')
+            if email.strip().endswith(f"@{allowed_domain}")
+        ]
+        
+        initial_details = {
+            "attendees": attendees,
+            "duration_minutes": None, # Not provided in the new format
+            "meeting_title": None # Not provided in the new format
+        }
+
+        session['original_request_details'] = initial_details
+        session['status'] = 'AWAITING_INPUT'
+
+    # 4. Append the user's message to the conversation history
+    user_message_entry = {"role": "user", "content": user_message}
+    session.setdefault('conversation_history', []).append(user_message_entry)
+
+    # 5. Call the orchestrator agent to get the AI's response
+    try:
+        agent_response = run_orchestrator_agent(session)
+        assistant_response_text = agent_response["text"]
+    except Exception as e:
+        print(f"ERROR: An exception occurred in the agent: {e}")
+        assistant_response_text = "I'm sorry, I encountered an internal error and couldn't process your request. Please try again later."
+
+    # 6. Append the assistant's response to the history
+    assistant_message_entry = {"role": "model", "content": assistant_response_text}
+    session['conversation_history'].append(assistant_message_entry)
+
+    # 7. Update the entire session state in Firestore
+    update_data = {
+        "conversation_history": session['conversation_history'],
+        "status": session['status'],
+        "original_request_details": session['original_request_details']
+    }
+    update_session(session['sessionId'], update_data)
+
+    # 8. Return the agent's response
+    return jsonify({
+        "response": assistant_response_text
     })
 
 # ++++++++++ Frontend Routes ++++++++++

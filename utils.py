@@ -1,4 +1,5 @@
 from functools import wraps
+import os
 from flask import request, jsonify, g
 import firebase_admin
 from firebase_admin import auth
@@ -29,6 +30,25 @@ def token_required(f):
         except Exception as e:
             print(f"Error during token verification: {e}")
             return jsonify({"error": "An unexpected error occurred during authentication."}), 500
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+def api_key_required(f):
+    """
+    A decorator to ensure a valid API key is present in the request.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        api_key = None
+        if 'X-API-KEY' in request.headers:
+            api_key = request.headers['X-API-KEY']
+
+        if not api_key:
+            return jsonify({"error": "API key is missing."}), 401
+
+        if api_key != os.getenv("API_KEY"):
+            return jsonify({"error": "Invalid API key."}), 401
 
         return f(*args, **kwargs)
     return decorated_function
