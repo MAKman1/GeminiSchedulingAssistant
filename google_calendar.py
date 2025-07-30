@@ -22,7 +22,15 @@ def _get_calendar_service(user_to_impersonate: str):
         else:
             # Fallback to Application Default Credentials
             creds, _ = google.auth.default(scopes=CALENDAR_SCOPES)
-            creds = creds.with_subject(user_to_impersonate)
+            creds = google.oauth2.service_account.Credentials(
+                creds.token,
+                refresh_token=creds.refresh_token,
+                token_uri=creds.token_uri,
+                client_id=creds.client_id,
+                client_secret=creds.client_secret,
+                scopes=CALENDAR_SCOPES,
+                subject=user_to_impersonate
+            )
 
         service = googleapiclient.discovery.build('calendar', 'v3', credentials=creds)
         return service
