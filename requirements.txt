@@ -6,3 +6,4 @@ google-auth-oauthlib
 google-cloud-firestore
 google-genai
 firebase-admin
+gunicorn
