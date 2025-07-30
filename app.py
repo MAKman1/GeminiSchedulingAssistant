@@ -126,13 +126,8 @@ def chat():
     # 3. If this is the first message of a new session, store original request details
     is_new_conversation = not session.get('conversation_history')
     if is_new_conversation:
-        # Parse the CSV string, filter by domain, and remove the current user
-        allowed_domain = os.getenv("ALLOWED_DOMAIN")
-        attendees = [
-            email.strip()
-            for email in recipients.split(',')
-            if email.strip().endswith(f"@{allowed_domain}")
-        ]
+        # Parse the CSV string and remove the current user
+        attendees = [email.strip() for email in recipients.split(',')]
         user_email = g.current_user['email']
         if user_email in attendees:
             attendees.remove(user_email)
@@ -210,13 +205,8 @@ def api_chat():
     # 3. If this is the first message of a new session, store original request details
     is_new_conversation = not session.get('conversation_history')
     if is_new_conversation:
-        # Parse the CSV string, filter by domain, and remove the current user
-        allowed_domain = os.getenv("ALLOWED_DOMAIN")
-        attendees = [
-            email.strip()
-            for email in recipients.split(',')
-            if email.strip().endswith(f"@{allowed_domain}")
-        ]
+        # Parse the CSV string
+        attendees = [email.strip() for email in recipients.split(',')]
         
         initial_details = {
             "attendees": attendees,

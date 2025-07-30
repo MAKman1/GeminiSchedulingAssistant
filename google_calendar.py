@@ -62,8 +62,18 @@ def get_free_busy_info(attendee_emails: list, start_time_str: str, end_time_str:
     service = _get_calendar_service(user_to_impersonate)
     attendee_data = []
     soft_block_keywords = ["focus time", "study time", "no meetings", "deep work"]
+    allowed_domain = os.getenv("ALLOWED_DOMAIN")
 
-    for email in attendee_emails:
+    # Separate internal and external attendees
+    internal_attendees = [
+        email for email in attendee_emails if allowed_domain and email.endswith(f"@{allowed_domain}")
+    ]
+    external_attendees = [
+        email for email in attendee_emails if not allowed_domain or not email.endswith(f"@{allowed_domain}")
+    ]
+
+    # Process internal attendees to get their calendar data
+    for email in internal_attendees:
         try:
             events_result = service.events().list(
                 calendarId=email,
@@ -107,10 +117,18 @@ def get_free_busy_info(attendee_emails: list, start_time_str: str, end_time_str:
                 "busy_slots": [],
                 "soft_blocks": []
             })
+    
+    # Add external attendees to the response without calendar data
+    for email in external_attendees:
+        attendee_data.append({
+            "email": email,
+            "busy_slots": [],
+            "soft_blocks": []
+        })
 
     return {
         "internal_attendees": attendee_data,
-        "external_attendees": [] # Placeholder for now
+        "external_attendees": external_attendees
     }
 
 def create_calendar_event(summary: str, start_time_str: str, end_time_str: str, attendees: list, user_to_impersonate: str) -> dict:
