@@ -1,7 +1,9 @@
 import os
+import json
 import logging
 from datetime import datetime, timedelta
 import google.auth
+import google.auth.impersonated_credentials
 import google.oauth2.service_account
 import googleapiclient.discovery
 
@@ -10,27 +12,32 @@ CALENDAR_SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 def _get_calendar_service(user_to_impersonate: str):
     """Creates and returns a Google Calendar service object impersonating a user."""
-
     try:
         creds = None
+        creds_json_str = os.getenv("GOOGLE_CREDENTIALS_JSON")
         creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        if creds_path and os.path.exists(creds_path):
-            # Use service account key file if it exists
+
+        if creds_json_str:
+            # Priority 1: Use JSON from environment variable
+            creds_info = json.loads(creds_json_str)
+            creds = google.oauth2.service_account.Credentials.from_service_account_info(
+                creds_info, scopes=CALENDAR_SCOPES, subject=user_to_impersonate
+            )
+        elif creds_path and os.path.exists(creds_path):
+            # Priority 2: Use service account key file path
             creds = google.oauth2.service_account.Credentials.from_service_account_file(
                 creds_path, scopes=CALENDAR_SCOPES, subject=user_to_impersonate
             )
         else:
-            # Fallback to Application Default Credentials
+            # Priority 3: Fallback to Application Default Credentials
             creds, _ = google.auth.default(scopes=CALENDAR_SCOPES)
-            creds = google.oauth2.service_account.Credentials(
-                creds.token,
-                refresh_token=creds.refresh_token,
-                token_uri=creds.token_uri,
-                client_id=creds.client_id,
-                client_secret=creds.client_secret,
-                scopes=CALENDAR_SCOPES,
-                subject=user_to_impersonate
-            )
+            if user_to_impersonate:
+                creds = google.auth.impersonated_credentials.Credentials(
+                    source_credentials=creds,
+                    target_principal=user_to_impersonate,
+                    target_scopes=CALENDAR_SCOPES,
+                    lifetime=3600
+                )
 
         service = googleapiclient.discovery.build('calendar', 'v3', credentials=creds)
         return service
